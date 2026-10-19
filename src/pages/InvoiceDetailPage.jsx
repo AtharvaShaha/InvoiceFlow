@@ -6,11 +6,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, User, Hash, DollarSign,
   Clock, File, Eye, EyeOff, Edit3, Save, X, AlertTriangle,
-  CheckCircle
+  CheckCircle, Brain, ShieldAlert, ShieldCheck, Shield, Activity
 } from 'lucide-react';
 import { getInvoiceById, updateInvoice } from '../services/invoiceService';
 import { formatCurrency, formatDate, formatDateTime, displayValue, isMissing, getFilenameFromKey } from '../utils/formatters';
 import StatusBadge from '../components/ui/StatusBadge';
+import RiskBadge, { AnomalyScoreBar } from '../components/ui/RiskBadge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 function DetailField({ label, value, icon: Icon, missing, children }) {
@@ -222,6 +223,7 @@ export default function InvoiceDetailPage() {
                 {invoice.invoice_number || invoice.invoice_id}
               </h2>
               <StatusBadge status={invoice.status} />
+              <RiskBadge riskLevel={invoice.risk_level} predictionStatus={invoice.prediction_status} />
             </div>
             <p className="text-sm text-ink-500 mt-1 m-0">{invoice.invoice_id}</p>
           </div>
@@ -247,6 +249,164 @@ export default function InvoiceDetailPage() {
               <p className="text-xs text-danger-500 mt-0.5 m-0">
                 This invoice could not be processed. The image may be too blurry or in an unsupported format.
               </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ML Risk & Anomaly Analysis Panel */}
+      <div className="bg-surface rounded-xl border border-ink-200 p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-ink-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600">
+              <Brain size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-ink-900 m-0 flex items-center gap-2">
+                ML Risk &amp; Anomaly Analysis
+                {invoice.model_version && (
+                  <span className="text-[11px] font-mono text-ink-400 bg-ink-100 px-2 py-0.5 rounded font-normal">
+                    {invoice.model_version}
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-ink-500 m-0">
+                Statistical anomaly detection &amp; rule validation
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-ink-400">
+            {invoice.analyzed_at && (
+              <span>Analyzed: {formatDateTime(invoice.analyzed_at)}</span>
+            )}
+          </div>
+        </div>
+
+        {invoice.prediction_status === 'pending' ? (
+          <div className="p-4 rounded-lg bg-surface-raised border border-ink-200 text-center">
+            <LoadingSpinner size="sm" />
+            <p className="text-xs text-ink-500 mt-2 m-0">ML analysis in progress...</p>
+          </div>
+        ) : invoice.prediction_status === 'skipped' ? (
+          <div className="p-4 rounded-lg bg-ink-50 border border-ink-200">
+            <p className="text-xs text-ink-600 m-0">
+              ML analysis was skipped for this invoice (insufficient OCR data or failed extraction).
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Top 3 KPI metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Anomaly Score */}
+              <div className="p-3.5 rounded-lg bg-surface-raised border border-ink-200">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium text-ink-500">Anomaly Score</span>
+                  <span className="text-xs font-bold text-ink-800">{invoice.anomaly_score ?? 0}/100</span>
+                </div>
+                <AnomalyScoreBar score={invoice.anomaly_score} />
+                <p className="text-[11px] text-ink-400 mt-1.5 m-0">
+                  {invoice.anomaly_score <= 30
+                    ? 'Within normal statistical threshold'
+                    : invoice.anomaly_score <= 60
+                    ? 'Moderate deviation detected'
+                    : 'Significant anomalies detected'}
+                </p>
+              </div>
+
+              {/* Risk Level */}
+              <div className="p-3.5 rounded-lg bg-surface-raised border border-ink-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-ink-500">Risk Assessment</span>
+                  <RiskBadge riskLevel={invoice.risk_level} size="sm" />
+                </div>
+                <p className="text-xs text-ink-600 m-0 mt-1">
+                  {invoice.risk_level === 'Low' && 'Safe to process with standard workflow.'}
+                  {invoice.risk_level === 'Medium' && 'Review highlighted discrepancies before approving.'}
+                  {invoice.risk_level === 'High' && 'High probability of error, mismatch, or duplicate.'}
+                </p>
+              </div>
+
+              {/* Anomaly Flag */}
+              <div className="p-3.5 rounded-lg bg-surface-raised border border-ink-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-ink-500">Anomaly Status</span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      invoice.is_anomaly
+                        ? 'bg-danger-50 text-danger-700 border border-danger-500/20'
+                        : 'bg-success-50 text-success-700 border border-success-500/20'
+                    }`}
+                  >
+                    {invoice.is_anomaly ? (
+                      <>
+                        <ShieldAlert size={11} /> Flagged Anomaly
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={11} /> Standard
+                      </>
+                    )}
+                  </span>
+                </div>
+                <p className="text-xs text-ink-600 m-0 mt-1">
+                  {invoice.is_anomaly
+                    ? 'Triggered rule-based or statistical outlier alerts.'
+                    : 'No threshold violations detected.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Flagged Reasons (if any) */}
+            {invoice.anomaly_reasons && invoice.anomaly_reasons.length > 0 ? (
+              <div className="p-3.5 rounded-lg bg-danger-50/60 border border-danger-500/25">
+                <div className="flex items-center gap-1.5 mb-2 text-danger-700 font-medium text-xs">
+                  <ShieldAlert size={14} className="text-danger-600" />
+                  <span>Detected Risk Signals ({invoice.anomaly_reasons.length}):</span>
+                </div>
+                <ul className="space-y-1.5 m-0 pl-5 text-xs text-danger-700">
+                  {invoice.anomaly_reasons.map((reason, idx) => (
+                    <li key={idx} className="leading-relaxed">
+                      {reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-success-50/60 border border-success-500/20 flex items-center gap-2 text-xs text-success-700">
+                <ShieldCheck size={16} className="text-success-600 shrink-0" />
+                <span>All checks passed. Amounts and tax calculations conform to standard patterns.</span>
+              </div>
+            )}
+
+            {/* Clear Separation: ML Predictions vs Rule-Based Checks */}
+            <div className="p-3.5 rounded-lg bg-surface-raised border border-ink-200">
+              <p className="text-xs font-semibold text-ink-800 uppercase tracking-wider mb-2.5 m-0 flex items-center gap-1.5">
+                <Activity size={13} className="text-brand-600" />
+                Inspection System Breakdown (ML vs Rule-Based)
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-2.5 rounded bg-surface border border-ink-100">
+                  <div className="font-semibold text-brand-700 mb-1 flex items-center gap-1">
+                    <Brain size={12} /> ML Statistical Models
+                  </div>
+                  <ul className="m-0 pl-4 space-y-1 text-ink-600">
+                    <li>Amount outlier z-score against dataset distribution</li>
+                    <li>OCR extraction confidence scoring across line items</li>
+                    <li>Weighted multi-factor anomaly scoring (0–100)</li>
+                  </ul>
+                </div>
+                <div className="p-2.5 rounded bg-surface border border-ink-100">
+                  <div className="font-semibold text-ink-800 mb-1 flex items-center gap-1">
+                    <Shield size={12} /> Deterministic Rule Validations
+                  </div>
+                  <ul className="m-0 pl-4 space-y-1 text-ink-600">
+                    <li>GST symmetry: CGST = SGST check</li>
+                    <li>GST rate: CGST ≈ 9% of Platform Fee / Taxable Amount</li>
+                    <li>Sum consistency: Platform Fee + CGST + SGST = Total</li>
+                    <li>Duplicate detection: Invoice Number + Customer match</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -348,7 +508,7 @@ export default function InvoiceDetailPage() {
                     'bg-danger-50 text-danger-600'
                   }`}
                 >
-                  (Number(item.confidence) || 0).toFixed(1)%
+                  {(Number(item.confidence) || 0).toFixed(1)}%
                 </span>
               </div>
             ))}

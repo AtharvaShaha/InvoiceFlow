@@ -52,6 +52,14 @@ function normalizeInvoice(invoice = {}) {
     extracted_text: invoice.extracted_text ?? '',
     detected_text: invoice.detected_text ?? [],
     status: String(invoice.status || 'review').toLowerCase(),
+    // ML prediction fields — pass through from API/mock, never invent values
+    anomaly_score: invoice.anomaly_score ?? null,
+    risk_level: invoice.risk_level ?? null,
+    is_anomaly: invoice.is_anomaly ?? false,
+    anomaly_reasons: Array.isArray(invoice.anomaly_reasons) ? invoice.anomaly_reasons : [],
+    model_version: invoice.model_version ?? null,
+    prediction_status: invoice.prediction_status ?? null,
+    analyzed_at: invoice.analyzed_at ?? null,
   };
 }
 
@@ -91,6 +99,12 @@ export async function getInvoices(filters = {}) {
     );
   }
 
+  if (filters.riskLevel && filters.riskLevel !== 'all') {
+    results = results.filter(
+      inv => inv.risk_level === filters.riskLevel
+    );
+  }
+
   if (filters.dateFrom) {
     results = results.filter(inv =>
       inv.invoice_date &&
@@ -117,7 +131,7 @@ export async function getInvoices(filters = {}) {
     if (x == null || x === '') return 1;
     if (y == null || y === '') return -1;
 
-    if (['total_amount', 'platform_fee', 'cgst', 'sgst'].includes(sortBy)) {
+    if (['total_amount', 'platform_fee', 'cgst', 'sgst', 'anomaly_score'].includes(sortBy)) {
       x = Number(x);
       y = Number(y);
     } else if (['processed_at', 'invoice_date'].includes(sortBy)) {
@@ -250,6 +264,13 @@ export async function getDashboardStats() {
     });
   }
 
+  // ML risk distribution — computed from prediction fields, not invented
+  const analyzedInvoices = invoices.filter(i => i.prediction_status === 'completed');
+  const riskLow = analyzedInvoices.filter(i => i.risk_level === 'Low').length;
+  const riskMedium = analyzedInvoices.filter(i => i.risk_level === 'Medium').length;
+  const riskHigh = analyzedInvoices.filter(i => i.risk_level === 'High').length;
+  const anomalyCount = analyzedInvoices.filter(i => i.is_anomaly === true).length;
+
   return {
     total,
     processed,
@@ -262,6 +283,12 @@ export async function getDashboardStats() {
     ).length,
     recentInvoices: invoices.slice(0, 5),
     trendData,
+    // ML risk stats
+    riskLow,
+    riskMedium,
+    riskHigh,
+    anomalyCount,
+    analyzedCount: analyzedInvoices.length,
   };
 }
 
@@ -269,7 +296,8 @@ export function exportToCSV(invoices) {
   const headers = [
     'Invoice ID', 'Invoice Number', 'Customer Name', 'Invoice Date',
     'Order ID', 'Platform Fee (₹)', 'CGST (₹)', 'SGST (₹)',
-    'Total Amount (₹)', 'Status', 'Processed At', 'Source File',
+    'Total Amount (₹)', 'Status', 'Risk Level', 'Anomaly Score',
+    'Is Anomaly', 'Anomaly Reasons', 'Model Version', 'Processed At', 'Source File',
   ];
 
   const rows = invoices.map(inv => [
@@ -283,6 +311,11 @@ export function exportToCSV(invoices) {
     inv.sgst,
     inv.total_amount,
     inv.status,
+    inv.risk_level ?? '',
+    inv.anomaly_score ?? '',
+    inv.is_anomaly ? 'Yes' : 'No',
+    Array.isArray(inv.anomaly_reasons) ? inv.anomaly_reasons.join('; ') : '',
+    inv.model_version ?? '',
     inv.processed_at,
     inv.source_key,
   ]);

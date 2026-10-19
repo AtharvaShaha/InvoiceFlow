@@ -1,0 +1,4 @@
+# InvoiceFlow ML Lambda Dependencies
+# boto3 is pre-installed in the AWS Lambda Python runtime,
+# but listed here for local testing.
+boto3>=1.26.0

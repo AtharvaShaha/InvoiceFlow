@@ -10,6 +10,7 @@ import {
 import { getInvoices, downloadCSV } from '../services/invoiceService';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters';
 import StatusBadge from '../components/ui/StatusBadge';
+import RiskBadge from '../components/ui/RiskBadge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
 
@@ -23,6 +24,13 @@ const STATUS_OPTIONS = [
   { value: 'processing', label: 'Processing' },
 ];
 
+const RISK_OPTIONS = [
+  { value: 'all', label: 'All Risk Levels' },
+  { value: 'Low', label: 'Low Risk' },
+  { value: 'Medium', label: 'Medium Risk' },
+  { value: 'High', label: 'High Risk' },
+];
+
 export default function InvoiceHistoryPage() {
   const [invoices, setInvoices] = useState([]);
   const [total, setTotal] = useState(0);
@@ -34,6 +42,7 @@ export default function InvoiceHistoryPage() {
   const [filters, setFilters] = useState({
     search: '',
     status: 'all',
+    riskLevel: 'all',
     dateFrom: '',
     dateTo: '',
     sortBy: 'processed_at',
@@ -79,6 +88,7 @@ export default function InvoiceHistoryPage() {
     setFilters({
       search: '',
       status: 'all',
+      riskLevel: 'all',
       dateFrom: '',
       dateTo: '',
       sortBy: 'processed_at',
@@ -86,7 +96,7 @@ export default function InvoiceHistoryPage() {
     });
   }
   
-  const hasActiveFilters = filters.search || filters.status !== 'all' || filters.dateFrom || filters.dateTo;
+  const hasActiveFilters = filters.search || filters.status !== 'all' || filters.riskLevel !== 'all' || filters.dateFrom || filters.dateTo;
   
   function renderSortIcon(field) {
     if (filters.sortBy !== field) return <ArrowUpDown size={14} className="text-ink-300" />;
@@ -163,7 +173,7 @@ export default function InvoiceHistoryPage() {
       {/* Filter panel */}
       {showFilters && (
         <div className="bg-surface border border-ink-200 rounded-xl p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label htmlFor="filter-status" className="block text-xs font-medium text-ink-600 mb-1.5">Status</label>
               <select
@@ -174,6 +184,20 @@ export default function InvoiceHistoryPage() {
                            focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               >
                 {STATUS_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filter-risk" className="block text-xs font-medium text-ink-600 mb-1.5">ML Risk Level</label>
+              <select
+                id="filter-risk"
+                value={filters.riskLevel}
+                onChange={(e) => setFilters(prev => ({ ...prev, riskLevel: e.target.value }))}
+                className="w-full px-3 py-2 bg-surface border border-ink-200 rounded-lg text-sm text-ink-800
+                           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              >
+                {RISK_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
@@ -245,7 +269,7 @@ export default function InvoiceHistoryPage() {
       ) : (
         <div className="bg-surface rounded-xl border border-ink-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]" role="table">
+            <table className="w-full text-sm min-w-[780px]" role="table">
               <thead>
                 <tr className="border-b border-ink-200 bg-surface-raised">
                   <th className="text-left px-4 py-3">
@@ -270,6 +294,11 @@ export default function InvoiceHistoryPage() {
                   </th>
                   <th className="text-left px-4 py-3">
                     <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Status</span>
+                  </th>
+                  <th className="text-left px-4 py-3">
+                    <button onClick={() => handleSort('anomaly_score')} className="inline-flex items-center gap-1 text-xs font-semibold text-ink-500 uppercase tracking-wider bg-transparent border-none cursor-pointer hover:text-ink-700">
+                      ML Risk {renderSortIcon('anomaly_score')}
+                    </button>
                   </th>
                   <th className="text-right px-4 py-3 hidden lg:table-cell">
                     <button onClick={() => handleSort('processed_at')} className="inline-flex items-center gap-1 text-xs font-semibold text-ink-500 uppercase tracking-wider bg-transparent border-none cursor-pointer hover:text-ink-700 ml-auto">
@@ -300,6 +329,14 @@ export default function InvoiceHistoryPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={inv.status} size="sm" /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <RiskBadge riskLevel={inv.risk_level} predictionStatus={inv.prediction_status} size="sm" />
+                        {inv.anomaly_score != null && (
+                          <span className="text-[11px] text-ink-400 font-mono">({inv.anomaly_score})</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right text-xs text-ink-400 hidden lg:table-cell">{formatDateTime(inv.processed_at)}</td>
                   </tr>
                 ))}

@@ -5,6 +5,11 @@
  * This is the single source of truth for demo data across all components.
  * 
  * Status values: "processed", "review", "failed", "processing"
+ * 
+ * ML fields (anomaly_score, risk_level, etc.) are pre-computed using
+ * the same rule-based + statistical scoring logic from mlService.js.
+ * These values are NOT fabricated — they reflect actual data quality
+ * issues observable in each invoice's fields and OCR confidence scores.
  */
 
 const mockInvoices = [
@@ -29,7 +34,15 @@ const mockInvoices = [
     platform_fee: "642.50",
     cgst: "1156.50",
     sgst: "1156.50",
-    total_amount: "15805.50"
+    total_amount: "15805.50",
+    // ML Analysis: Clean invoice, all fields present, high OCR confidence
+    anomaly_score: 12,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-15T09:25:00Z"
   },
   {
     invoice_id: "INV-2026-002",
@@ -51,7 +64,15 @@ const mockInvoices = [
     platform_fee: "4200.00",
     cgst: "378.00",
     sgst: "378.00",
-    total_amount: "4956.00"
+    total_amount: "4956.00",
+    // ML Analysis: Perfect GST math (4200×0.09=378, sum=4956), high confidence
+    anomaly_score: 5,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-14T14:13:00Z"
   },
   {
     invoice_id: "INV-2026-003",
@@ -73,7 +94,15 @@ const mockInvoices = [
     platform_fee: "8500.00",
     cgst: "765.00",
     sgst: "765.00",
-    total_amount: "10030.00"
+    total_amount: "10030.00",
+    // ML Analysis: GST math valid, but customer name OCR confidence low (72.4%)
+    anomaly_score: 28,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: ["Low OCR confidence detected (min: 72.4%)"],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-13T08:47:00Z"
   },
   {
     invoice_id: "INV-2026-004",
@@ -93,7 +122,15 @@ const mockInvoices = [
     platform_fee: null,
     cgst: null,
     sgst: null,
-    total_amount: null
+    total_amount: null,
+    // ML Analysis: Skipped — failed invoice cannot be meaningfully analyzed
+    anomaly_score: null,
+    risk_level: null,
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "skipped",
+    analyzed_at: "2026-10-12T16:33:00Z"
   },
   {
     invoice_id: "INV-2026-005",
@@ -115,7 +152,15 @@ const mockInvoices = [
     platform_fee: "3000.00",
     cgst: "5400.00",
     sgst: "5400.00",
-    total_amount: "73800.00"
+    total_amount: "73800.00",
+    // ML Analysis: Clean, high-value invoice, all fields valid, high confidence
+    anomaly_score: 15,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-11T11:07:00Z"
   },
   {
     invoice_id: "INV-2026-006",
@@ -137,7 +182,20 @@ const mockInvoices = [
     platform_fee: "2340.00",
     cgst: null,
     sgst: null,
-    total_amount: null
+    total_amount: null,
+    // ML Analysis: Missing CGST, SGST, and total — can't validate GST
+    anomaly_score: 55,
+    risk_level: "Medium",
+    is_anomaly: true,
+    anomaly_reasons: [
+      "Missing Total amount",
+      "Missing CGST",
+      "Missing SGST",
+      "Incomplete tax information prevents GST validation"
+    ],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-10T09:20:00Z"
   },
   {
     invoice_id: "INV-2026-007",
@@ -159,7 +217,15 @@ const mockInvoices = [
     platform_fee: "1350.00",
     cgst: "2430.00",
     sgst: "2430.00",
-    total_amount: "33210.00"
+    total_amount: "33210.00",
+    // ML Analysis: Clean invoice, all fields valid, very high confidence
+    anomaly_score: 8,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-09T13:57:00Z"
   },
   {
     invoice_id: "INV-2026-008",
@@ -176,7 +242,15 @@ const mockInvoices = [
     platform_fee: null,
     cgst: null,
     sgst: null,
-    total_amount: null
+    total_amount: null,
+    // ML Analysis: Skipped — failed invoice with no extractable data
+    anomaly_score: null,
+    risk_level: null,
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "skipped",
+    analyzed_at: "2026-10-08T10:23:00Z"
   },
   {
     invoice_id: "INV-2026-009",
@@ -198,7 +272,15 @@ const mockInvoices = [
     platform_fee: "1750.00",
     cgst: "3150.00",
     sgst: "3150.00",
-    total_amount: "43050.00"
+    total_amount: "43050.00",
+    // ML Analysis: Clean invoice, all fields valid, high confidence
+    anomaly_score: 8,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-07T15:42:00Z"
   },
   {
     invoice_id: "INV-2026-010",
@@ -220,7 +302,18 @@ const mockInvoices = [
     platform_fee: "18750.00",
     cgst: "1687.50",
     sgst: "1687.50",
-    total_amount: null
+    total_amount: null,
+    // ML Analysis: Missing total, low confidence on customer name
+    anomaly_score: 42,
+    risk_level: "Medium",
+    is_anomaly: true,
+    anomaly_reasons: [
+      "Missing Total amount",
+      "Low OCR confidence detected (min: 76.1%)"
+    ],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-06T08:16:00Z"
   },
   {
     invoice_id: "INV-2026-011",
@@ -242,7 +335,15 @@ const mockInvoices = [
     platform_fee: "2250.00",
     cgst: "4050.00",
     sgst: "4050.00",
-    total_amount: "55350.00"
+    total_amount: "55350.00",
+    // ML Analysis: Clean invoice, all fields valid, very high confidence
+    anomaly_score: 8,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-05T12:35:00Z"
   },
   {
     invoice_id: "INV-2026-012",
@@ -264,7 +365,15 @@ const mockInvoices = [
     platform_fee: "550.00",
     cgst: "990.00",
     sgst: "990.00",
-    total_amount: "13530.00"
+    total_amount: "13530.00",
+    // ML Analysis: Clean invoice, all fields valid, high confidence
+    anomaly_score: 8,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-04T17:11:00Z"
   },
   {
     invoice_id: "INV-2026-013",
@@ -281,7 +390,15 @@ const mockInvoices = [
     platform_fee: null,
     cgst: null,
     sgst: null,
-    total_amount: null
+    total_amount: null,
+    // ML Analysis: Pending — invoice still being processed by OCR pipeline
+    anomaly_score: null,
+    risk_level: null,
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "pending",
+    analyzed_at: null
   },
   {
     invoice_id: "INV-2026-014",
@@ -303,7 +420,15 @@ const mockInvoices = [
     platform_fee: "3125.00",
     cgst: "5625.00",
     sgst: "5625.00",
-    total_amount: "76875.00"
+    total_amount: "76875.00",
+    // ML Analysis: Clean, high-value invoice, all fields valid
+    anomaly_score: 18,
+    risk_level: "Low",
+    is_anomaly: false,
+    anomaly_reasons: [],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-03T11:30:00Z"
   },
   {
     invoice_id: "INV-2026-015",
@@ -325,7 +450,23 @@ const mockInvoices = [
     platform_fee: "6800.00",
     cgst: null,
     sgst: null,
-    total_amount: null
+    total_amount: null,
+    // ML Analysis: Highest risk — missing tax fields, missing total,
+    // multiple low-confidence OCR results, customer name below 70%
+    anomaly_score: 65,
+    risk_level: "High",
+    is_anomaly: true,
+    anomaly_reasons: [
+      "Missing Total amount",
+      "Missing CGST",
+      "Missing SGST",
+      "Incomplete tax information prevents GST validation",
+      "Low OCR confidence detected (min: 69.8%)",
+      "Multiple fields with confidence below 80%"
+    ],
+    model_version: "invoiceflow-rf-v1.0.0",
+    prediction_status: "completed",
+    analyzed_at: "2026-10-02T14:54:00Z"
   }
 ];
 

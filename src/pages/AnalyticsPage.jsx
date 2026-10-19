@@ -3,7 +3,8 @@
  */
 import { useState, useEffect, useMemo } from 'react';
 import {
-  BarChart3, PieChart as PieChartIcon, TrendingUp, DollarSign, FileText, AlertTriangle
+  BarChart3, PieChart as PieChartIcon, TrendingUp, DollarSign, FileText, AlertTriangle,
+  Brain, ShieldAlert, ShieldCheck
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -26,6 +27,12 @@ const STATUS_LABELS = {
   review: 'Needs Review',
   failed: 'Failed',
   processing: 'Processing',
+};
+
+const RISK_COLORS = {
+  Low: '#10b981',
+  Medium: '#f59e0b',
+  High: '#ef4444',
 };
 
 function CustomPieTooltip({ active, payload }) {
@@ -141,6 +148,32 @@ export default function AnalyticsPage() {
       });
     });
     
+    // ML Risk distribution
+    const riskCounts = { Low: 0, Medium: 0, High: 0 };
+    let analyzedCount = 0;
+    let anomalyCount = 0;
+    let totalScoreSum = 0;
+
+    invoices.forEach(inv => {
+      if (inv.risk_level && riskCounts[inv.risk_level] !== undefined) {
+        riskCounts[inv.risk_level] += 1;
+        analyzedCount += 1;
+      }
+      if (inv.anomaly_score != null) {
+        totalScoreSum += Number(inv.anomaly_score);
+      }
+      if (inv.is_anomaly) anomalyCount += 1;
+    });
+
+    const riskData = Object.entries(riskCounts).map(([risk, count]) => ({
+      name: `${risk} Risk`,
+      value: count,
+      fill: RISK_COLORS[risk],
+      total: analyzedCount,
+    }));
+
+    const avgAnomalyScore = analyzedCount > 0 ? Math.round(totalScoreSum / analyzedCount) : 0;
+
     return {
       statusData,
       monthlyData,
@@ -153,6 +186,11 @@ export default function AnalyticsPage() {
       totalInvoices: invoices.length,
       missingAmountCount: invoices.length - invoicesWithAmounts.length,
       cumulativeData,
+      riskData,
+      analyzedCount,
+      anomalyCount,
+      avgAnomalyScore,
+      riskCounts,
     };
   }, [invoices]);
   
@@ -213,6 +251,16 @@ export default function AnalyticsPage() {
           </div>
           <p className="text-xl font-bold text-ink-900 m-0">{analytics.missingAmountCount}</p>
           <p className="text-xs text-ink-400 mt-1 m-0">Invoices without detected total amount</p>
+        </div>
+        <div className="bg-surface rounded-xl border border-ink-200 p-4 card-hover">
+          <div className="flex items-center gap-2 mb-2">
+            <Brain size={16} className="text-brand-600" />
+            <span className="text-xs font-medium text-ink-500 uppercase tracking-wider">ML Anomalies</span>
+          </div>
+          <p className="text-xl font-bold text-ink-900 m-0">{analytics.anomalyCount}</p>
+          <p className="text-xs text-ink-400 mt-1 m-0">
+            Flagged from {analytics.analyzedCount} analyzed invoices
+          </p>
         </div>
       </div>
       
@@ -303,6 +351,92 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </div>
+
+      {/* ML Risk Analytics Row */}
+      {analytics.analyzedCount > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ML Risk Distribution */}
+          <div className="bg-surface rounded-xl border border-ink-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Brain size={16} className="text-brand-600" />
+                <h3 className="text-base font-semibold text-ink-900 m-0">ML Risk Level Distribution</h3>
+              </div>
+              <span className="text-xs text-ink-400">{analytics.analyzedCount} Analyzed</span>
+            </div>
+            <div className="h-64 flex items-center">
+              <ResponsiveContainer width="60%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={analytics.riskData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    dataKey="value"
+                    strokeWidth={2}
+                    stroke="#fff"
+                  >
+                    {analytics.riskData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomPieTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex-1 space-y-2.5 pl-2">
+                {analytics.riskData.map((entry, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: entry.fill }} />
+                    <span className="text-sm text-ink-600">{entry.name}</span>
+                    <span className="text-sm font-semibold text-ink-800 ml-auto">{entry.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ML Health & Insights */}
+          <div className="bg-surface rounded-xl border border-ink-200 p-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldCheck size={16} className="text-brand-600" />
+                <h3 className="text-base font-semibold text-ink-900 m-0">ML Quality &amp; Risk Insights</h3>
+              </div>
+              <p className="text-xs text-ink-500 mb-4 m-0">
+                Evaluation results across deterministic GST rules and statistical amount distributions.
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-surface-raised border border-ink-100">
+                  <span className="text-xs text-ink-500 block">Avg Anomaly Score</span>
+                  <span className="text-xl font-bold text-ink-800">{analytics.avgAnomalyScore}/100</span>
+                </div>
+                <div className="p-3 rounded-lg bg-surface-raised border border-ink-100">
+                  <span className="text-xs text-ink-500 block">Anomaly Rate</span>
+                  <span className="text-xl font-bold text-ink-800">
+                    {((analytics.anomalyCount / analytics.analyzedCount) * 100).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-ink-100 text-xs text-ink-600">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-success-500" />
+                <span><strong>{analytics.riskCounts.Low} invoices</strong> validated cleanly with no math/duplicate discrepancies</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-warning-500" />
+                <span><strong>{analytics.riskCounts.Medium} invoices</strong> flagged with minor missing items or low OCR confidence</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-danger-500" />
+                <span><strong>{analytics.riskCounts.High} invoices</strong> marked high risk (GST arithmetic mismatches or duplicates)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Second row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
